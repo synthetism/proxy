@@ -33,6 +33,7 @@ async function main() {
     console.log('🏗️  Creating OculusSource...');
     const oculusSource = new OculusSource({
       apiToken: config.apiToken,
+      orderToken: config.orderToken, // Add orderToken from config
       host: config.host,
       port: config.port,
       username: config.username,

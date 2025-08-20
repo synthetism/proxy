@@ -98,11 +98,13 @@ export class OculusSource implements IProxySource {
       numberOfProxies: count,
       country: 'US', // Default to US, could be configurable
       enableSock5: false, // Default to HTTP, could be configurable
-      whiteListIP: ['0.0.0.0'] // Empty array - let Oculus determine IP
+      whiteListIP: ['182.253.163.192'] // At least one IP is required according to API response
     };
 
     console.log('🌐 Oculus API Request:', JSON.stringify(requestBody, null, 2));
     console.log('🔑 Auth Token:', this.config.apiToken.substring(0, 8) + '...');
+    console.log('🎫 Order Token:', this.config.orderToken || 'NOT SET');
+    console.log('📋 Full Config Keys:', Object.keys(this.config));
 
     try {
       const response = await fetch(apiUrl, {
@@ -113,6 +115,32 @@ export class OculusSource implements IProxySource {
         },
         body: JSON.stringify(requestBody)
       });
+
+      console.log(`📡 Oculus API Response: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ Error response body:', errorText);
+
+        // Extract Oculus-specific error headers
+        const errorCode = response.headers.get('x-tlp-err-code');
+        const errorMessage = response.headers.get('x-tlp-error');
+        const errorDetail = response.headers.get('x-tlp-err-msg');
+        
+        console.log('🔍 Oculus Error Headers:');
+        console.log(`   x-tlp-err-code: ${errorCode || 'not provided'}`);
+        console.log(`   x-tlp-error: ${errorMessage || 'not provided'}`);
+        console.log(`   x-tlp-err-msg: ${errorDetail || 'not provided'}`);
+        
+        // Show all response headers for debugging
+        console.log('📋 All Response Headers:');
+        response.headers.forEach((value, key) => {
+          console.log(`   ${key}: ${value}`);
+        });
+        
+        const detailedError = errorDetail || errorMessage || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(`Oculus API Error: ${detailedError}`);
+      }
 
       console.log(`Oculus API Response: ${response.status} ${response.statusText}`);
 
