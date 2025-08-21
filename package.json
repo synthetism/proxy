@@ -19,6 +19,7 @@
     "dev:test": "vitest",
     "demo": "tsx demo/oculus-demo.ts",
     "demo:oculus": "tsx demo/oculus-demo.ts",
+    "demo:proxymesh": "tsx demo/proxymesh-demo.ts",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "coverage": "vitest run --coverage",

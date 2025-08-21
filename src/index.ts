@@ -1,12 +1,12 @@
 // Core types
 export type { 
   IProxySource, 
-  Proxy, 
+  ProxyItem, 
   ProxyConnection, 
   ProxyCriteria, 
   SourceStats, 
   SourceHealth 
-} from './types/index.js';
+} from './types.js';
 
 // Socker unit
 export { SockerUnit } from './socker.unit.js';

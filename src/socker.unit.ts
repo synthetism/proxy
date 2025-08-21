@@ -8,7 +8,7 @@ import {
   Schema,
   Validator
 } from '@synet/unit';
-import type { IProxySource, Proxy, SourceHealth, SourceStats } from './types/index.js';
+import type { IProxySource, ProxyItem, SourceHealth, SourceStats } from './types.js';
 
 interface SockerConfig {
   sources: IProxySource[];
@@ -23,7 +23,7 @@ interface SockerProps extends UnitProps {
  * SockerUnit - Internal source manager with multi-provider support
  * 
  * Responsibility: Multi-source orchestration, provider management, failover
- * - Simple 80/20 failover strategy
+ * - Simple failover strategy
  * - Round-robin source selection
  * - Async removal across sources that support it
  */
@@ -98,9 +98,10 @@ Sources: ${this.props.sources.length}
   }
 
   /**
-   * 80/20 Simple failover - Try sources in order
+   * Simple failover - Try sources in order
    */
-  async replenish(count: number): Promise<Proxy[]> {
+  async replenish(count: number): Promise<ProxyItem[]> {
+    
     for (const source of this.props.sources) {
       try {
         const proxies = await source.get(count);
@@ -108,6 +109,7 @@ Sources: ${this.props.sources.length}
           return proxies;
         }
       } catch (error) {
+
         this.emit({
           type: 'source.failed',
           timestamp: new Date(),
@@ -115,8 +117,9 @@ Sources: ${this.props.sources.length}
             message: error instanceof Error ? error.message : 'Unknown error'
           }
         });
-        continue; // Try next source
+      
       }
+      
     }
     
     throw new Error('All proxy sources exhausted');
@@ -128,15 +131,20 @@ Sources: ${this.props.sources.length}
   async remove(id: string): Promise<void> {
     const removePromises = this.props.sources
       .filter(source => source.remove) // Only sources that support removal
-      .map(source => source.remove!(id).catch(error => {
-        this.emit({
-          type: 'source.remove.failed',
-          timestamp: new Date(),
-          error: {
-            message: error instanceof Error ? error.message : 'Unknown error'
-          }
-        });
-      }));
+      .map(source => async () => {
+        if (source.remove) {
+          return source.remove(id).catch(error => {
+            this.emit({
+              type: 'source.remove.failed',
+              timestamp: new Date(),
+              error: {
+                message: error instanceof Error ? error.message : 'Unknown error'
+              }
+            });
+          });
+        }
+        return Promise.resolve();
+      });
 
     await Promise.allSettled(removePromises);
   }
@@ -167,24 +175,6 @@ Sources: ${this.props.sources.length}
     return Promise.all(healthChecks);
   }
 
-  /**
-   * Get stats from all sources that support it
-   */
-  getSourceStats(): SourceStats[] {
-    return this.props.sources
-      .map((source, index) => {
-        if (source.getStats) {
-          return source.getStats();
-        }
-        return {
-          name: `source-${index}`,
-          total: 0,
-          successful: 0,
-          failed: 0
-        };
-      })
-      .filter(stats => stats !== null);
-  }
 
   /**
    * Get current source (round-robin selection)

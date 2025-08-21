@@ -1,4 +1,4 @@
-export interface Proxy {
+export interface ProxyItem {
   id: string;
   ttl: number;
   source: string;
@@ -40,8 +40,7 @@ export interface SourceHealth {
 }
 
 export interface IProxySource {
-  get(count: number): Promise<Proxy[]>;
+  get(count: number): Promise<ProxyItem[]>;
   remove?(id: string): Promise<void>;  // Mark proxy as used in source
-  validate?(proxy: Proxy): Promise<boolean>;
-  getStats?(): SourceStats;
+  validate?(proxy: ProxyItem): Promise<boolean>;
 }

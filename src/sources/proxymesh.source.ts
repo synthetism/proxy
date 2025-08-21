@@ -1,143 +1,96 @@
-import type { IProxySource, Proxy, SourceStats } from '../types/index.js';
-
-interface ProxyMeshProxy {
-  id: string;
-  address: string; // "host:port" format
-  status: 'active' | 'inactive';
-}
+import type { IProxySource, ProxyItem } from '../types.js';
 
 interface ProxyMeshConfig {
-  proxies: ProxyMeshProxy[];
-  username?: string;
-  password?: string;
+  login: string;
+  password: string;
+  host: string;
+  port: number;
 }
 
 /**
- * ProxyMesh Source - Pool-based proxy provider with rotation
+ * ProxyMesh Source - Single endpoint proxy provider
  * 
- * Emulates database behavior with remove() function
- * Uses proxymesh.json configuration
+ * Handles one active ProxyMesh endpoint (e.g., sg.proxymesh.com:31280)
+ * Each endpoint provides access to a regional IP pool
+ * Format: username:password@host:port (standard proxy auth)
  */
 export class ProxyMeshSource implements IProxySource {
-  private proxies: Map<string, ProxyMeshProxy>;
-  private usedProxies: Set<string>;
-  private stats: SourceStats;
   private readonly config: ProxyMeshConfig;
+  private isActive: boolean;
 
   constructor(config: ProxyMeshConfig) {
     this.config = config;
-    this.proxies = new Map();
-    this.usedProxies = new Set();
-    
-    // Initialize proxy pool
-    config.proxies.forEach(proxy => {
-      this.proxies.set(proxy.id, proxy);
-    });
-
-    this.stats = {
-      name: 'proxymesh',
-      total: config.proxies.length,
-      successful: 0,
-      failed: 0
-    };
+    this.isActive = true; // Start as active
   }
 
-  async get(count: number): Promise<Proxy[]> {
-    try {
-      const availableProxies = Array.from(this.proxies.values())
-        .filter(proxy => 
-          proxy.status === 'active' && 
-          !this.usedProxies.has(proxy.id)
-        );
-
-      if (availableProxies.length === 0) {
-        this.stats.failed++;
-        this.stats.lastFailure = new Date();
-        throw new Error('ProxyMesh: No available proxies');
-      }
-
-      const selectedProxies = availableProxies
-        .slice(0, Math.min(count, availableProxies.length))
-        .map(proxy => this.convertToProxy(proxy));
-
-      this.stats.successful++;
-      this.stats.lastSuccess = new Date();
-
-      return selectedProxies;
-    } catch (error) {
-      this.stats.failed++;
-      this.stats.lastFailure = new Date();
-      throw error;
+  async get(count: number): Promise<ProxyItem[]> {
+    if (!this.isActive) {
+      throw new Error('ProxyMesh endpoint is inactive');
     }
-  }
 
-  // Critical for database-like sources - mark proxy as used
-  async remove(id: string): Promise<void> {
-    // Extract original proxy ID from synet proxy ID
-    const originalId = this.extractOriginalId(id);
-    
-    if (this.proxies.has(originalId)) {
-      this.usedProxies.add(originalId);
-      console.log(`ProxyMesh: Marked proxy ${originalId} as used`);
-    } else {
-      throw new Error(`ProxyMesh: Proxy ${originalId} not found`);
-    }
-  }
-
-  async validate?(proxy: Proxy): Promise<boolean> {
-    const originalId = this.extractOriginalId(proxy.id);
-    const meshProxy = this.proxies.get(originalId);
-    
-    return meshProxy !== undefined && 
-           meshProxy.status === 'active' && 
-           !this.usedProxies.has(originalId);
-  }
-
-  getStats(): SourceStats {
-    return {
-      ...this.stats,
-      total: this.proxies.size
-    };
-  }
-
-  /**
-   * Reset used proxies (for testing)
-   */
-  reset(): void {
-    this.usedProxies.clear();
-  }
-
-  /**
-   * Get current pool status
-   */
-  getPoolStatus() {
-    return {
-      total: this.proxies.size,
-      active: Array.from(this.proxies.values()).filter(p => p.status === 'active').length,
-      used: this.usedProxies.size,
-      available: Array.from(this.proxies.values()).filter(p => 
-        p.status === 'active' && !this.usedProxies.has(p.id)
-      ).length
-    };
-  }
-
-  private convertToProxy(meshProxy: ProxyMeshProxy): Proxy {
-    return {
-      id: `proxymesh-${meshProxy.id}-${Date.now()}`, // Unique ID for tracking
-      ttl: 3600, // 1 hour TTL for pool proxies
+    // ProxyMesh endpoint represents access to regional IP pool
+    // We return one "proxy" representing this endpoint access
+    const proxy: ProxyItem = {
+      id: `proxymesh-${this.config.host}-${Date.now()}`,
+      ttl: 3600, // 1 hour TTL for endpoint access
       source: 'proxymesh',
       used: false,
       createdAt: new Date()
     };
+
+    // ProxyMesh provides one endpoint access, regardless of count requested
+    return [proxy];
   }
 
-  private extractOriginalId(synetProxyId: string): string {
-    // Extract original ID from "proxymesh-{originalId}-{timestamp}" format
-    const parts = synetProxyId.split('-');
-    if (parts.length >= 3 && parts[0] === 'proxymesh') {
-      // Join middle parts in case original ID contains dashes
-      return parts.slice(1, -1).join('-');
-    }
-    return synetProxyId; // Fallback
+  /**
+   * Mark endpoint as inactive (simulates removal/deactivation)
+   */
+  async remove(id: string): Promise<void> {
+    console.log(`ProxyMesh: Deactivating endpoint for proxy ${id}`);
+    this.isActive = false;
+  }
+
+  async validate?(proxy: ProxyItem): Promise<boolean> {
+    // Validate that proxy is from this source and endpoint is still active
+    return proxy?.source === 'proxymesh' && 
+           proxy?.id?.includes(this.config.host) && 
+           this.isActive;
+  }
+
+  /**
+   * Get formatted proxy connection string for HTTP clients
+   * Format: username:password@host:port
+   */
+  getConnectionString(): string {
+    return `${this.config.login}:${this.config.password}@${this.config.host}:${this.config.port}`;
+  }
+
+  /**
+   * Get proxy configuration for HTTP clients
+   */
+  getProxyConfig() {
+    return {
+      host: this.config.host,
+      port: this.config.port,
+      auth: {
+        username: this.config.login,
+        password: this.config.password
+      }
+    };
+  }
+
+  /**
+   * Check if endpoint is currently active
+   */
+  isEndpointActive(): boolean {
+    return this.isActive;
+  }
+
+  /**
+   * Reactivate endpoint (for testing/demo purposes)
+   */
+  reactivate(): void {
+    this.isActive = true;
+    console.log(`ProxyMesh: Endpoint ${this.config.host} reactivated`);
   }
 }

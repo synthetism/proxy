@@ -1,4 +1,4 @@
-import type { IProxySource, Proxy, SourceStats } from '../types/index.js';
+import type { IProxySource, ProxyItem } from '../types.js';
 
 interface OculusConfig {
   apiToken: string; // Used as authToken header
@@ -24,7 +24,7 @@ interface OculusApiResponse {
  */
 export class OculusSource implements IProxySource {
   private readonly config: OculusConfig;
-  private stats: SourceStats;
+
 
   constructor(config: OculusConfig) {
     this.config = {
@@ -32,44 +32,27 @@ export class OculusSource implements IProxySource {
       ...config
     };
     
-    this.stats = {
-      name: 'oculus',
-      total: 0,
-      successful: 0,
-      failed: 0
-    };
   }
 
-  async get(count: number): Promise<Proxy[]> {
-    try {
-      const response = await this.callApi(count);
-      
-      if (response.error) {
-        this.stats.failed++;
-        this.stats.lastFailure = new Date();
-        throw new Error(`Oculus API error: ${response.error}`);
-      }
+  async get(count: number): Promise<ProxyItem[]> {
+    const response = await this.callApi(count);
+    
+    if (response.error) {
 
-      if (!response.proxies || response.proxies.length === 0) {
-        this.stats.failed++;
-        this.stats.lastFailure = new Date();
-        throw new Error('Oculus API returned no proxies');
-      }
-
-      const proxies = response.proxies.map((proxyString, index) => {
-        return this.parseProxyString(proxyString, index);
-      });
-
-      this.stats.successful++;
-      this.stats.total += proxies.length;
-      this.stats.lastSuccess = new Date();
-
-      return proxies;
-    } catch (error) {
-      this.stats.failed++;
-      this.stats.lastFailure = new Date();
-      throw error;
+      throw new Error(`Oculus API error: ${response.error}`);
     }
+
+    if (!response.proxies || response.proxies.length === 0) {
+
+      throw new Error('Oculus API returned no proxies');
+    }
+
+    const proxies = response.proxies.map((proxyString, index) => {
+      return this.parseProxyString(proxyString, index);
+    });
+
+
+    return proxies;
   }
 
   // Optional: API providers might not support removal
@@ -80,14 +63,11 @@ export class OculusSource implements IProxySource {
     return Promise.resolve();
   }
 
-  async validate?(proxy: Proxy): Promise<boolean> {
+  async validate?(proxy: ProxyItem): Promise<boolean> {
     // Basic validation - could be enhanced with actual connectivity test
     return proxy.id.length > 0 && proxy.source === 'oculus';
   }
 
-  getStats(): SourceStats {
-    return { ...this.stats };
-  }
 
   private async callApi(count: number): Promise<OculusApiResponse> {
     const apiUrl = 'https://api.oculusproxies.com/v1/configure/proxy/getProxies';
@@ -101,10 +81,10 @@ export class OculusSource implements IProxySource {
       whiteListIP: ['182.253.163.192'] // At least one IP is required according to API response
     };
 
-    console.log('🌐 Oculus API Request:', JSON.stringify(requestBody, null, 2));
-    console.log('🔑 Auth Token:', this.config.apiToken.substring(0, 8) + '...');
+    /* console.log('🌐 Oculus API Request:', JSON.stringify(requestBody, null, 2));
+    console.log('🔑 Auth Token:', `${this.config.apiToken.substring(0, 8)}...`);
     console.log('🎫 Order Token:', this.config.orderToken || 'NOT SET');
-    console.log('📋 Full Config Keys:', Object.keys(this.config));
+    console.log('📋 Full Config Keys:', Object.keys(this.config)); */
 
     try {
       const response = await fetch(apiUrl, {
@@ -156,11 +136,7 @@ export class OculusSource implements IProxySource {
       // Handle different response formats from Oculus API
       if (Array.isArray(data)) {
         return { proxies: data as string[] };
-      }
-      
-      if (data && typeof data === 'object' && 'proxies' in data && Array.isArray((data as any).proxies)) {
-        return { proxies: (data as any).proxies as string[] };
-      }
+      }            
       
       return { error: 'Invalid response format from Oculus API' };
     } catch (error) {
@@ -171,7 +147,7 @@ export class OculusSource implements IProxySource {
     }
   }
 
-  private parseProxyString(proxyString: string, index: number): Proxy {
+  private parseProxyString(proxyString: string, index: number): ProxyItem {
     // Oculus format: "host:port:username:password"
     // Example: "192.0.2.1:8080:login:password"
     
