@@ -83,8 +83,8 @@ async function main() {
     console.log('🏗️  Creating ProxyUnit with SockerUnit failover...');
     const proxy = ProxyUnit.create({
       sources,
-      poolSize: 5,     // Small pool for demo
-      rotationThreshold: 0.1  // 10% threshold for demo
+      poolSize: 10,     // Small pool for demo
+      rotationThreshold: 0.4  // 40% threshold for demo
     });
 
     console.log('✅ ProxyUnit created:');
@@ -135,7 +135,7 @@ async function main() {
     
     console.log('🌐 Testing proxy retrieval (no criteria)...');
     
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 7; i++) {
       try {
         const connection = await proxy.get();
         console.log(`✅ Proxy ${i}: ${connection.protocol}://${connection.host}:${connection.port} (${connection.country || 'unknown'})`);
@@ -148,36 +148,10 @@ async function main() {
     }
     console.log();
 
-    // =============================================================================
-    // STEP 5: Test Proxy Retrieval (With Criteria)
-    // =============================================================================
-    
-    console.log('🎯 Testing proxy retrieval (with criteria)...');
-    
-    const testCriteria = [
-      { protocol: 'http' as const },
-      { type: 'datacenter' as const },
-      { country: 'gb' },
-      { protocol: 'socks5' as const, type: 'residential' as const }
-    ];
 
-    for (const criteria of testCriteria) {
-      try {
-        const connection = await proxy.get(criteria);
-        const criteriaStr = Object.entries(criteria).map(([k, v]) => `${k}:${v}`).join(', ');
-        console.log(`✅ Criteria {${criteriaStr}}: ${connection.protocol}://${connection.host}:${connection.port}`);
-        console.log(` 🌍 Country: ${connection.country || 'unknown'}`);
-      } catch (error) {
-        const criteriaStr = Object.entries(criteria).map(([k, v]) => `${k}:${v}`).join(', ');
-        console.log(`❌ Criteria {${criteriaStr}}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    console.log();
 
     // =============================================================================
-    // STEP 6: Test Pool Status & Replenishment
+    // STEP 5: Test Pool Status & Replenishment
     // =============================================================================
     
     console.log('📊 Checking pool status after usage...');

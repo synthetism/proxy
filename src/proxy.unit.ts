@@ -59,7 +59,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
   protected build(): UnitCore {
     const capabilities = Capabilities.create(this.dna.id, {
       init: (...args: unknown[]) => this.init(),
-      get: (...args: unknown[]) => this.get(args[0] as ProxyCriteria),
+      get: (...args: unknown[]) => this.get(),
       validate: (...args: unknown[]) => this.validate(args[0] as ProxyConnection),
       delete: (...args: unknown[]) => this.delete(args[0] as ProxyConnection),
     });
@@ -208,24 +208,27 @@ export class ProxyUnit extends Unit<ProxyProps> {
    * Get proxy connection for network requests
    * Base principle: One method, automatic management, no decisions needed
    */
-  async get(criteria?: ProxyCriteria): Promise<ProxyConnection> {
+  async get(): Promise<ProxyConnection> {
     const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
     if (!isInitialized) {
       throw new Error(`[${this.dna.id}] Proxy pool not initialized - call init() first`);
     }
 
-    // Check if pool needs replenishment (async, non-blocking, but prevent duplicates)
-    if (this.shouldReplenish() && !this.isReplenishing()) {
-      this.replenishPool(); // Fire and forget - SMITH PRINCIPLE
-    }
-
     // Get from current pool immediately
-    const proxy = this.getFromPool(criteria);
+    const proxy = this.getFromPool();
     if (!proxy) {
       throw new Error(`[${this.dna.id}] Proxy pool exhausted - replenishment in progress`);
     }
 
-    return this.formatForNetwork(proxy);
+    // Mark as used and trigger replenishment check
+    this.markProxyAsUsed(proxy.id);
+    
+    // Check if pool needs replenishment after marking as used
+    if (this.shouldReplenish() && !this.isReplenishing()) {
+      this.replenishPool(); // Fire and forget - SMITH PRINCIPLE
+    }
+
+    return this.formatProxyConnection(proxy);
   }
 
   /**
@@ -323,10 +326,11 @@ export class ProxyUnit extends Unit<ProxyProps> {
     // Set replenishing flag
     this.props.poolState.set('replenishing', true);
     
-    const currentSize = this.props.poolState.get<number>('size') || 0;
-    const neededCount = this.props.poolSize - currentSize;
+    const proxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
+    const availableCount = proxies.filter((p: ProxyItem) => !p.used).length;
+    const neededCount = this.props.poolSize - availableCount;
 
-    console.log('currentSize: ', currentSize);
+    console.log('availableCount: ', availableCount);
     console.log('Needed count: ', neededCount);
     this.props.socker.replenish(neededCount)
       .then(newProxies => {
@@ -354,10 +358,10 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
-   * Get proxy from pool with criteria matching
-   * SMITH PRINCIPLE: Simple matching, practical filtering
+   * Get proxy from pool - simplified, no criteria
+   * SMITH PRINCIPLE: Simple matching, just get next available
    */
-  private getFromPool(criteria?: ProxyCriteria): ProxyItem | null {
+  private getFromPool(): ProxyItem | null {
     const proxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
     const availableProxies = proxies.filter((p: ProxyItem) => !p.used);
 
@@ -365,35 +369,35 @@ export class ProxyUnit extends Unit<ProxyProps> {
       return null;
     }
 
-    // Apply criteria filtering if provided
-    if (criteria) {
-      const filtered = availableProxies.filter((proxy: ProxyItem) => {
-        // Country matching
-        if (criteria.country && proxy.country !== criteria.country) {
-          return false;
-        }
-        
-        // Protocol matching
-        if (criteria.protocol && proxy.protocol !== criteria.protocol) {
-          return false;
-        }
-        
-        // Type matching
-        if (criteria.type && proxy.type !== criteria.type) {
-          return false;
-        }
-        
-        return true;
-      });
-      
-      if (filtered.length > 0) {
-        return filtered[0]; // First match
-      }
-      
-      // If no exact match, return any available proxy (graceful degradation)
-    }
-
     return availableProxies[0]; // First available 
+  }
+
+  /**
+   * Mark proxy as used - explicit and visible
+   */
+  private markProxyAsUsed(proxyId: string): void {
+    const currentProxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
+    const updatedProxies = currentProxies.map((p: ProxyItem) => 
+      p.id === proxyId ? { ...p, used: true } : p
+    );
+    
+    this.props.poolState.set('proxies', updatedProxies);
+  }
+
+  /**
+   * Format proxy for Network unit consumption - clean separation
+   */
+  private formatProxyConnection(proxy: ProxyItem): ProxyConnection {
+    return {
+      id: proxy.id,
+      host: proxy.host,
+      port: proxy.port,
+      username: proxy.username,
+      password: proxy.password,
+      protocol: proxy.protocol,
+      type: proxy.type,
+      country: proxy.country
+    };
   }
 
   /**
@@ -417,32 +421,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
     
     this.props.poolState.set('proxies', updatedProxies);
     this.props.poolState.set('size', updatedProxies.length);
-  }
-
-  /**
-   * Format proxy for Network unit consumption
-   * SMITH PRINCIPLE: Standard format, direct mapping from ProxyItem
-   */
-  private formatForNetwork(proxy: ProxyItem): ProxyConnection {
-    // Mark as used in pool
-    const currentProxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
-    const updatedProxies = currentProxies.map((p: ProxyItem) => 
-      p.id === proxy.id ? { ...p, used: true } : p
-    );
-    
-    this.props.poolState.set('proxies', updatedProxies);
-
-    // Return real proxy connection data from ProxyItem
-    return {
-      id: proxy.id,
-      host: proxy.host,
-      port: proxy.port,
-      username: proxy.username,
-      password: proxy.password,
-      protocol: proxy.protocol,
-      type: proxy.type,
-      country: proxy.country
-    };
   }
 
   teach(): TeachingContract {
