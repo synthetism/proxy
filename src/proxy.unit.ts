@@ -4,6 +4,7 @@ import {
   createUnitSchema, 
   type TeachingContract,
   type UnitCore,
+  type Event,
   Capabilities,
   Schema,
   Validator
@@ -39,6 +40,9 @@ interface PoolData {
   lastRefresh: Date | null;
 }
 
+export interface ProxyEvent extends Event {
+  type: 'pool.initialized' | 'pool.replenished' | 'pool.replenish.failed' | 'pool.init.failed' | 'proxy.remove.failed';
+}
 /**
  * ProxyUnit - Network-facing proxy orchestrator with pool management
  * 
@@ -59,8 +63,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
       get: (...args: unknown[]) => this.get(args[0] as ProxyCriteria),
       validate: (...args: unknown[]) => this.validate(args[0] as ProxyConnection),
       delete: (...args: unknown[]) => this.delete(args[0] as ProxyConnection),
-      getStats: (...args: unknown[]) => this.getStats(),
-      getPoolStatus: (...args: unknown[]) => this.getPoolStatus()
     });
 
     const schema = Schema.create(this.dna.id, {
@@ -144,8 +146,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
   validator(): Validator { return this._unit.validator; }
 
   static create(config: ProxyConfig): ProxyUnit {
-    // SMITH PRINCIPLE: Eliminate choice, impose reasonable defaults
-    const poolSize = config.poolSize ?? 20; // No choice - 20 is optimal
+    // Basic principle: Convention over configuration, impose reasonable defaults
+    const poolSize = config.poolSize ?? 20; // No choice - 20 is optimal for most operations
     const rotationThreshold = config.rotationThreshold ?? 0.3; // No choice - 30% is optimal
 
     const socker = SockerUnit.create(config.sources);
@@ -169,7 +171,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * REQUIRED: Initialize proxy pool before first use
-   * SMITH PRINCIPLE: One call, no options, just works
    */
   async init(): Promise<void> {
     if (this.props.initialized) {
@@ -188,13 +189,13 @@ export class ProxyUnit extends Unit<ProxyProps> {
       // Mark as initialized
       this.props.initialized = true;
 
-      this.emit({
+      this.emit<ProxyEvent>({
         type: 'pool.initialized',
         timestamp: new Date()
       });
 
     } catch (error) {
-      this.emit({
+      this.emit<ProxyEvent>({
         type: 'pool.init.failed',
         timestamp: new Date(),
         error: {
@@ -207,7 +208,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * Get proxy connection for network requests
-   * SMITH PRINCIPLE: One method, automatic management, no decisions needed
+   * Base principle: One method, automatic management, no decisions needed
    */
   async get(criteria?: ProxyCriteria): Promise<ProxyConnection> {
     if (!this.props.initialized) {
@@ -238,7 +239,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * Remove proxy from pool and mark as used
-   * SMITH PRINCIPLE: Fire and forget, no complex state management
+   * Base principle:: Fire and forget, no complex state management
    */
   async delete(proxy: ProxyConnection): Promise<void> {
     // Remove from local pool immediately
@@ -247,7 +248,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
     // Async removal from source (fire and forget)
     this.props.socker.remove(proxy.id)
       .catch(error => {
-        this.emit({
+        this.emit<ProxyEvent>({
           type: 'proxy.remove.failed',
           timestamp: new Date(),
           error: {
@@ -309,7 +310,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * Async pool replenishment (non-blocking)
-   * SMITH PRINCIPLE: Fire and forget, handle errors internally
+   * Base principle: Fire and forget, handle errors internally
    */
   private replenishPool(): void {
     const currentSize = this.props.poolState.get<number>('size') || 0;
@@ -319,14 +320,14 @@ export class ProxyUnit extends Unit<ProxyProps> {
       .then(newProxies => {
         if (newProxies.length > 0) {
           this.addToPool(newProxies);
-          this.emit({
+          this.emit<ProxyEvent>({
             type: 'pool.replenished',
             timestamp: new Date()
           });
         }
       })
       .catch(error => {
-        this.emit({
+        this.emit<ProxyEvent>({
           type: 'pool.replenish.failed',
           timestamp: new Date(),
           error: {
@@ -337,8 +338,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
-   * Get proxy from pool with simple criteria matching
-   * SMITH PRINCIPLE: Simple matching, no complex algorithms
+   * Get proxy from pool with criteria matching
+   * SMITH PRINCIPLE: Simple matching, practical filtering
    */
   private getFromPool(criteria?: ProxyCriteria): ProxyItem | null {
     const proxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
@@ -348,16 +349,32 @@ export class ProxyUnit extends Unit<ProxyProps> {
       return null;
     }
 
-    // Simple criteria matching - SMITH PRINCIPLE: No complex filtering
+    // Apply criteria filtering if provided
     if (criteria) {
       const filtered = availableProxies.filter((proxy: ProxyItem) => {
-        // Basic filtering - could be enhanced based on proxy metadata
-        return true; // For now, return any available proxy
+        // Country matching
+        if (criteria.country && proxy.country !== criteria.country) {
+          return false;
+        }
+        
+        // Protocol matching
+        if (criteria.protocol && proxy.protocol !== criteria.protocol) {
+          return false;
+        }
+        
+        // Type matching
+        if (criteria.type && proxy.type !== criteria.type) {
+          return false;
+        }
+        
+        return true;
       });
       
       if (filtered.length > 0) {
-        return filtered[0]; // First match - no choice
+        return filtered[0]; // First match - SMITH PRINCIPLE
       }
+      
+      // If no exact match, return any available proxy (graceful degradation)
     }
 
     return availableProxies[0]; // First available - SMITH PRINCIPLE
@@ -388,7 +405,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * Format proxy for Network unit consumption
-   * SMITH PRINCIPLE: Standard format, no options
+   * SMITH PRINCIPLE: Standard format, direct mapping from ProxyItem
    */
   private formatForNetwork(proxy: ProxyItem): ProxyConnection {
     // Mark as used in pool
@@ -399,13 +416,16 @@ export class ProxyUnit extends Unit<ProxyProps> {
     
     this.props.poolState.set('proxies', updatedProxies);
 
-    // Return standard format for Network unit
+    // Return real proxy connection data from ProxyItem
     return {
       id: proxy.id,
-      host: '127.0.0.1', // Placeholder - will be populated from source data
-      port: 8080,        // Placeholder - will be populated from source data
-      protocol: 'http',  // Default - SMITH PRINCIPLE
-      type: 'datacenter' // Default - SMITH PRINCIPLE
+      host: proxy.host,
+      port: proxy.port,
+      username: proxy.username,
+      password: proxy.password,
+      protocol: proxy.protocol,
+      type: proxy.type,
+      country: proxy.country
     };
   }
 
@@ -427,8 +447,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
     console.log(`
 ProxyUnit v${this.dna.version} - Pool Management + Source Orchestration
 
-SMITH PRINCIPLE: No choices. One way. AI-first.
-
 REQUIRED INITIALIZATION:
   await proxy.init(); // Must call before use
 
@@ -436,8 +454,8 @@ ONE METHOD TO RULE THEM ALL:
   const connection = await proxy.get(criteria?);
 
 Pool Management (Automatic):
-• 20 proxy pool size (no choice)
-• 30% replenishment threshold (no choice)
+• 20 proxy pool size (convention over configuration)
+• 30% replenishment threshold (convention over configuration)
 • Fire-and-forget replenishment (non-blocking)
 • Automatic source failover via SockerUnit
 

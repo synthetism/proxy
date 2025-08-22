@@ -5,6 +5,7 @@ interface ProxyMeshConfig {
   password: string;
   host: string;
   port: number;
+  protocol?: 'http' | 'https' | 'socks5';
 }
 
 /**
@@ -34,6 +35,9 @@ export class ProxyMeshSource implements IProxySource {
       id: `proxymesh-${this.config.host}-${Date.now()}`,
       ttl: 3600, // 1 hour TTL for endpoint access
       source: 'proxymesh',
+      host: this.config.host,
+      port: this.config.port,
+      protocol: this.config.protocol || 'http',
       used: false,
       createdAt: new Date()
     };

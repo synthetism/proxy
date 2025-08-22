@@ -64,16 +64,16 @@ async function main() {
       });
 
       // Test stats
-      console.log('📊 Source Stats:');
+      /* console.log('📊 Source Stats:');
       const stats = oculusSource.getStats();
       console.log(`   Name: ${stats.name}`);
       console.log(`   Total: ${stats.total}`);
       console.log(`   Successful: ${stats.successful}`);
-      console.log(`   Failed: ${stats.failed}`);
+      console.log(`   Failed: ${stats.failed}`); 
       if (stats.lastSuccess) {
         console.log(`   Last Success: ${stats.lastSuccess.toISOString()}`);
       }
-      console.log();
+      console.log(); */
 
       console.log('🎉 Demo completed successfully!');
       

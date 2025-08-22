@@ -7,6 +7,7 @@ interface OculusConfig {
   port?: number;
   username?: string;
   password?: string;
+  protocol?: 'http' | 'https' | 'socks5';
   planType?: 'DEDICATED_DC' | 'ISP' | 'ISP_PREMIUM' | 'SHARED_DC' | 'RESIDENTIAL_SCRAPER';
 }
 
@@ -148,9 +149,12 @@ export class OculusSource implements IProxySource {
   }
 
   private parseProxyString(proxyString: string, index: number): ProxyItem {
+    
     // Oculus format: "host:port:username:password"
     // Example: "192.0.2.1:8080:login:password"
     
+  
+
     const parts = proxyString.split(':');
     if (parts.length !== 4) {
       throw new Error(`Invalid Oculus proxy format: ${proxyString}`);
@@ -160,6 +164,11 @@ export class OculusSource implements IProxySource {
 
     return {
       id: `oculus-${Date.now()}-${index}`,
+      host,
+      port: Number(port),
+      username,
+      protocol: this.config.protocol || 'http',
+      password,
       ttl: 300, // 5 minutes default TTL
       source: 'oculus',
       used: false,

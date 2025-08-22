@@ -4,6 +4,14 @@ export interface ProxyItem {
   source: string;
   used?: boolean;
   createdAt: Date;
+  // Connection details - populated by source
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  protocol: 'http' | 'https' | 'socks5';
+  type?: 'datacenter' | 'residential';
+  country?: string;
 }
 
 export interface ProxyConnection {
