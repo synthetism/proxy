@@ -44,3 +44,22 @@ export interface IProxySource {
   remove?(id: string): Promise<void>;  // Mark proxy as used in source
   validate?(proxy: ProxyItem): Promise<boolean>;
 }
+
+export interface ProxyStats {
+  poolSize: number;
+  currentSize: number;
+  available: number;
+  lastRefresh: Date | null;
+  rotationThreshold: number;
+  initialized: boolean;
+}
+
+export interface PoolStatus extends ProxyStats {
+  shouldReplenish: boolean;
+  proxies: Array<{
+    id: string;
+    source: string;
+    used: boolean;
+    age: number;
+  }>;
+}
