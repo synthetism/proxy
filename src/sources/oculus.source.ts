@@ -89,7 +89,7 @@ export class OculusSource implements IProxySource {
     console.log('📋 Full Config Keys:', Object.keys(this.config)); */
  
 
-    console.log('📡 Oculus Request body:', requestBody);
+  
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -99,31 +99,19 @@ export class OculusSource implements IProxySource {
         },
         body: JSON.stringify(requestBody)
       });
-
-      console.log(`📡 Oculus API Response: ${response.status} ${response.statusText}`);
-
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.log('❌ Error response body:', errorText);
 
-        // Extract Oculus-specific error headers
-        const errorCode = response.headers.get('x-tlp-err-code');
-        const errorMessage = response.headers.get('x-tlp-error');
-        const errorDetail = response.headers.get('x-tlp-err-msg');
-        
-        console.log('🔍 Oculus Error Headers:');
-        console.log(`   x-tlp-err-code: ${errorCode || 'not provided'}`);
-        console.log(`   x-tlp-error: ${errorMessage || 'not provided'}`);
-        console.log(`   x-tlp-err-msg: ${errorDetail || 'not provided'}`);
-        
-        // Show all response headers for debugging
-        console.log('📋 All Response Headers:');
-        response.headers.forEach((value, key) => {
-          console.log(`   ${key}: ${value}`);
-        });
-        
-        const detailedError = errorDetail || errorMessage || `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(`Oculus API Error: ${detailedError}`);
+        const oculusError = {
+          code: response.headers.get('x-tlp-err-code'),
+          message: response.headers.get('x-tlp-error'),
+          detail: response.headers.get('x-tlp-err-msg')
+        };
+
+        `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(`Oculus API Error: ${oculusError.detail}(${oculusError.code})`);
       }
 
       console.log(`Oculus API Response: ${response.status} ${response.statusText}`);
@@ -135,7 +123,7 @@ export class OculusSource implements IProxySource {
       }
 
       const data: unknown = await response.json();
-      console.log('✅ API Response data:', JSON.stringify(data, null, 2));
+      // console.log('✅ API Response data:', JSON.stringify(data, null, 2));
       
       // Handle different response formats from Oculus API
       if (Array.isArray(data)) {
@@ -144,7 +132,7 @@ export class OculusSource implements IProxySource {
       
       return { error: 'Invalid response format from Oculus API' };
     } catch (error) {
-      console.log('💥 API call failed:', error);
+      console.log('❌ API call failed:', error);
       return { 
         error: error instanceof Error ? error.message : 'Unknown API error' 
       };
@@ -154,7 +142,6 @@ export class OculusSource implements IProxySource {
   private parseProxyString(proxyString: string, index: number): ProxyItem {
     
     // Oculus format: "host:port:username:password"
-    // Example: "192.0.2.1:8080:login:password"
     
     const parts = proxyString.split(':');
     if (parts.length !== 4) {
@@ -175,7 +162,6 @@ export class OculusSource implements IProxySource {
       used: false,
       createdAt: new Date(),
       country: this.config.country || 'us', // Default to US since API is configured for US
-      type: this.config.planType === 'SHARED_DC' ? 'datacenter' : 'residential'
     };
   }
 }

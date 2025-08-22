@@ -21,7 +21,6 @@ export interface ProxyConnection {
   username?: string;
   password?: string;
   protocol: 'http' | 'https' | 'socks5';
-  type?: 'datacenter' | 'residential';
   country?: string;
 }
 

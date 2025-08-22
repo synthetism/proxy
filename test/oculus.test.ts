@@ -21,8 +21,10 @@ describe('OculusSource', () => {
     orderToken: 'test-order-token',
     host: 'proxy.oculus-proxy.com',
     port: 31112,
-    username: 'test-username',
-    password: 'test-password'
+    planType:"SHARED_DC",
+    country: "us",
+    whiteListIP: ["1.1.1.1"]
+
   };
 
   beforeEach(() => {
@@ -84,7 +86,7 @@ describe('OculusSource', () => {
         'x-tlp-err-msg': 'Check your credentials'
       }));
 
-      await expect(oculusSource.get(1)).rejects.toThrow('Oculus API Error: Check your credentials');
+      await expect(oculusSource.get(1)).rejects.toThrow('Oculus API Error: Check your credentials(client_10001)');
     });
 
     it('should handle network errors', async () => {
@@ -152,14 +154,13 @@ describe('OculusSource', () => {
 
       const fetchCall = mockFetch.mock.calls[0];
       const requestBody = JSON.parse(fetchCall?.[1]?.body as string);
-
       expect(requestBody).toEqual({
         orderToken: 'test-order-token',
         planType: 'SHARED_DC',
         numberOfProxies: 5,
-        country: 'US',
+        country: 'us',
         enableSock5: false,
-        whiteListIP: ['182.253.163.192'] // Match the actual hardcoded IP
+        whiteListIP: ['1.1.1.1'] // Match the actual hardcoded IP
       });
     });
 

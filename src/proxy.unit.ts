@@ -395,7 +395,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
       username: proxy.username,
       password: proxy.password,
       protocol: proxy.protocol,
-      type: proxy.type,
       country: proxy.country
     };
   }
