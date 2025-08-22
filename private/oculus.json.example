@@ -1,4 +1,5 @@
 {
     "apiToken" :"api-token",
-    "orderToken" : "order-token"
+    "orderToken" : "order-token",
+    "whiteListIP": ["your.sever.ip.addess1", "your.sever.ip.addess2"]
 }

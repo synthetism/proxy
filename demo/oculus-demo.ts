@@ -38,7 +38,8 @@ async function main() {
       port: config.port,
       username: config.username,
       password: config.password,
-      planType: 'SHARED_DC'
+      planType: 'SHARED_DC',
+      whiteListIP: config.whiteListIP
     });
     console.log('✅ OculusSource created\n');
 

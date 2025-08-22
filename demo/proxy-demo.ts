@@ -11,8 +11,6 @@ import type { IProxySource } from '../src/types.js';
 /**
  * Complete Proxy System Demo - ProxyUnit + SockerUnit Integration
  * 
- * SMITH PRINCIPLE: No choices. One demo. All functionality.
- * 
  * Tests:
  * 1. Load real proxy source configurations
  * 2. Create ProxyUnit with multiple sources (SockerUnit failover)
@@ -39,11 +37,8 @@ async function main() {
       const oculusSource = new OculusSource({
         apiToken: oculusConfig.apiToken,
         orderToken: oculusConfig.orderToken,
-        host: oculusConfig.host,
-        port: oculusConfig.port,
-        username: oculusConfig.username,
-        password: oculusConfig.password,
-        planType: 'SHARED_DC'
+        planType: 'SHARED_DC',
+        whiteListIP: oculusConfig.whiteListIP,   
       });
       
       sources.push(oculusSource);
@@ -88,8 +83,8 @@ async function main() {
     console.log('🏗️  Creating ProxyUnit with SockerUnit failover...');
     const proxy = ProxyUnit.create({
       sources,
-      poolSize: 10,     // Small pool for demo
-      rotationThreshold: 0.4  // 40% threshold for demo
+      poolSize: 5,     // Small pool for demo
+      rotationThreshold: 0.1  // 10% threshold for demo
     });
 
     console.log('✅ ProxyUnit created:');
@@ -162,7 +157,7 @@ async function main() {
     const testCriteria = [
       { protocol: 'http' as const },
       { type: 'datacenter' as const },
-      { country: 'US' },
+      { country: 'gb' },
       { protocol: 'socks5' as const, type: 'residential' as const }
     ];
 
@@ -171,6 +166,7 @@ async function main() {
         const connection = await proxy.get(criteria);
         const criteriaStr = Object.entries(criteria).map(([k, v]) => `${k}:${v}`).join(', ');
         console.log(`✅ Criteria {${criteriaStr}}: ${connection.protocol}://${connection.host}:${connection.port}`);
+        console.log(` 🌍 Country: ${connection.country || 'unknown'}`);
       } catch (error) {
         const criteriaStr = Object.entries(criteria).map(([k, v]) => `${k}:${v}`).join(', ');
         console.log(`❌ Criteria {${criteriaStr}}: ${error instanceof Error ? error.message : String(error)}`);

@@ -31,7 +31,6 @@ interface ProxyProps extends UnitProps {
   poolState: State; // State unit from @synet/state
   poolSize: number;
   rotationThreshold: number;
-  initialized: boolean;
 }
 
 interface PoolData {
@@ -154,7 +153,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const poolState = createState('proxy-pool', {
       proxies: [],
       size: 0,
-      lastRefresh: null
+      lastRefresh: null,
+      initialized: false  // Track initialization in state
     });
 
     const props: ProxyProps = {
@@ -162,8 +162,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
       socker,
       poolState,
       poolSize,
-      rotationThreshold,
-      initialized: false
+      rotationThreshold
     };
 
     return new ProxyUnit(props);
@@ -173,7 +172,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
    * REQUIRED: Initialize proxy pool before first use
    */
   async init(): Promise<void> {
-    if (this.props.initialized) {
+    const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
+    if (isInitialized) {
       return; // Already initialized - idempotent
     }
 
@@ -185,9 +185,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
       this.props.poolState.set('proxies', initialProxies);
       this.props.poolState.set('size', initialProxies.length);
       this.props.poolState.set('lastRefresh', new Date());
-
-      // Mark as initialized
-      this.props.initialized = true;
+      this.props.poolState.set('initialized', true);
 
       this.emit<ProxyEvent>({
         type: 'pool.initialized',
@@ -211,12 +209,13 @@ export class ProxyUnit extends Unit<ProxyProps> {
    * Base principle: One method, automatic management, no decisions needed
    */
   async get(criteria?: ProxyCriteria): Promise<ProxyConnection> {
-    if (!this.props.initialized) {
+    const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
+    if (!isInitialized) {
       throw new Error(`[${this.dna.id}] Proxy pool not initialized - call init() first`);
     }
 
-    // Check if pool needs replenishment (async, non-blocking)
-    if (this.shouldReplenish()) {
+    // Check if pool needs replenishment (async, non-blocking, but prevent duplicates)
+    if (this.shouldReplenish() && !this.isReplenishing()) {
       this.replenishPool(); // Fire and forget - SMITH PRINCIPLE
     }
 
@@ -272,7 +271,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
       available: proxies.filter((p: ProxyItem) => !p.used).length,
       lastRefresh,
       rotationThreshold: this.props.rotationThreshold,
-      initialized: this.props.initialized
+      initialized: this.props.poolState.get<boolean>('initialized') || false
     };
   }
 
@@ -309,13 +308,26 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
+   * Check if replenishment is already in progress
+   * Prevents race conditions from multiple simultaneous replenishments
+   */
+  private isReplenishing(): boolean {
+    return this.props.poolState.get<boolean>('replenishing') || false;
+  }
+
+  /**
    * Async pool replenishment (non-blocking)
    * Base principle: Fire and forget, handle errors internally
    */
   private replenishPool(): void {
+    // Set replenishing flag
+    this.props.poolState.set('replenishing', true);
+    
     const currentSize = this.props.poolState.get<number>('size') || 0;
     const neededCount = this.props.poolSize - currentSize;
-    
+
+    console.log('currentSize: ', currentSize);
+    console.log('Needed count: ', neededCount);
     this.props.socker.replenish(neededCount)
       .then(newProxies => {
         if (newProxies.length > 0) {
@@ -334,6 +346,10 @@ export class ProxyUnit extends Unit<ProxyProps> {
             message: error instanceof Error ? error.message : 'Unknown error'
           }
         });
+      })
+      .finally(() => {
+        // Clear replenishing flag regardless of outcome
+        this.props.poolState.set('replenishing', false);
       });
   }
 
@@ -371,13 +387,13 @@ export class ProxyUnit extends Unit<ProxyProps> {
       });
       
       if (filtered.length > 0) {
-        return filtered[0]; // First match - SMITH PRINCIPLE
+        return filtered[0]; // First match
       }
       
       // If no exact match, return any available proxy (graceful degradation)
     }
 
-    return availableProxies[0]; // First available - SMITH PRINCIPLE
+    return availableProxies[0]; // First available 
   }
 
   /**

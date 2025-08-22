@@ -2,13 +2,15 @@ import type { IProxySource, ProxyItem } from '../types.js';
 
 interface OculusConfig {
   apiToken: string; // Used as authToken header
-  orderToken?: string; // Optional separate order token, defaults to apiToken
+  orderToken: string; 
   host?: string;
   port?: number;
   username?: string;
   password?: string;
+  country?: string;
   protocol?: 'http' | 'https' | 'socks5';
   planType?: 'DEDICATED_DC' | 'ISP' | 'ISP_PREMIUM' | 'SHARED_DC' | 'RESIDENTIAL_SCRAPER';
+  whiteListIP: string[];
 }
 
 interface OculusApiResponse {
@@ -29,7 +31,6 @@ export class OculusSource implements IProxySource {
 
   constructor(config: OculusConfig) {
     this.config = {
-      planType: 'SHARED_DC',
       ...config
     };
     
@@ -74,19 +75,21 @@ export class OculusSource implements IProxySource {
     const apiUrl = 'https://api.oculusproxies.com/v1/configure/proxy/getProxies';
     
     const requestBody = {
-      orderToken: this.config.orderToken, // Use orderToken if provided, otherwise apiToken
+      orderToken: this.config.orderToken,
       planType: this.config.planType,
       numberOfProxies: count,
-      country: 'US', // Default to US, could be configurable
-      enableSock5: false, // Default to HTTP, could be configurable
-      whiteListIP: ['182.253.163.192'] // At least one IP is required according to API response
+      country: this.config.country || 'us', // Default to `us`, could be configurable
+      enableSock5: this.config.protocol === 'socks5', // Support SOCKS5 based on config
+      whiteListIP: this.config.whiteListIP // At least one IP is required according to API response
     };
 
     /* console.log('🌐 Oculus API Request:', JSON.stringify(requestBody, null, 2));
     console.log('🔑 Auth Token:', `${this.config.apiToken.substring(0, 8)}...`);
     console.log('🎫 Order Token:', this.config.orderToken || 'NOT SET');
     console.log('📋 Full Config Keys:', Object.keys(this.config)); */
+ 
 
+    console.log('📡 Oculus Request body:', requestBody);
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -153,8 +156,6 @@ export class OculusSource implements IProxySource {
     // Oculus format: "host:port:username:password"
     // Example: "192.0.2.1:8080:login:password"
     
-  
-
     const parts = proxyString.split(':');
     if (parts.length !== 4) {
       throw new Error(`Invalid Oculus proxy format: ${proxyString}`);
@@ -172,7 +173,9 @@ export class OculusSource implements IProxySource {
       ttl: 300, // 5 minutes default TTL
       source: 'oculus',
       used: false,
-      createdAt: new Date()
+      createdAt: new Date(),
+      country: this.config.country || 'us', // Default to US since API is configured for US
+      type: this.config.planType === 'SHARED_DC' ? 'datacenter' : 'residential'
     };
   }
 }
