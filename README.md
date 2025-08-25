@@ -281,9 +281,6 @@ const usProxies = ProxyUnit.create({
 
 // Request US proxies specifically
 const proxy = await usProxies.get({ country: 'US' });
-```
-  rotationThreshold: 0.2  // Replenish at 20%
-});
 
 await proxyUnit.init();
 
@@ -330,6 +327,76 @@ try {
     url: '/ip',
     method: 'GET',
     proxy
+  });
+  
+  console.log('Success:', response);
+} catch (error) {
+  if (proxy) {
+    await proxyUnit.failed(proxy); // Mark proxy as failed
+  }
+  throw error;
+}
+```
+
+### With Axios
+
+```typescript
+import axios from 'axios';
+
+let proxy;
+try {
+  proxy = await proxyUnit.exclusive(); // Get with exclusive access
+  
+  const response = await axios.get('https://httpbin.org/ip', {
+    proxy: {
+      protocol: proxy.protocol,
+      host: proxy.host,
+      port: proxy.port,
+      auth: {
+        username: proxy.username,
+        password: proxy.password
+      }
+    },
+    timeout: 10000
+  });
+  
+  console.log('Success:', response.data);
+} catch (error) {
+  if (proxy) {
+    await proxyUnit.failed(proxy); // Mark proxy as failed
+  }
+  throw error;
+}
+```
+
+### With Node.js HTTP/HTTPS
+
+```typescript
+import https from 'https';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+let proxy;
+try {
+  proxy = await proxyUnit.exclusive(); // Get with exclusive access
+  
+  const proxyUrl = `http://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}`;
+  const agent = new HttpsProxyAgent(proxyUrl);
+  
+  const options = {
+    hostname: 'httpbin.org',
+    path: '/ip',
+    method: 'GET',
+    agent: agent
+  };
+  
+  const response = await new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => resolve(JSON.parse(data)));
+    });
+    req.on('error', reject);
+    req.end();
   });
   
   console.log('Success:', response);
