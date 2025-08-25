@@ -10,7 +10,7 @@ import {
   Validator
 } from '@synet/unit';
 import { createState, type State } from '@synet/state';
-import { SockerUnit } from './socker.unit.js';
+import { Socker } from './socker.unit.js';
 import { Validate } from './validate.unit.js';
 import type { 
   IProxySource, 
@@ -28,7 +28,7 @@ interface ProxyConfig {
 }
 
 interface ProxyProps extends UnitProps {
-  socker: SockerUnit;
+  socker: Socker;
   validator: Validate;
   poolState: State; // State unit from @synet/state
   poolSize: number;
@@ -62,7 +62,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const capabilities = Capabilities.create(this.dna.id, {
       init: (...args: unknown[]) => this.init(),
       get: (...args: unknown[]) => this.get(),
-      release: (...args: unknown[]) => this.release(),
+      exclusive: (...args: unknown[]) => this.exclusive(),
+      failed: (...args: unknown[]) => this.failed(args[0] as ProxyConnection),
       validate: (...args: unknown[]) => this.validate(args[0] as ProxyConnection),
       delete: (...args: unknown[]) => this.delete(args[0] as ProxyConnection),
     });
@@ -106,9 +107,9 @@ export class ProxyUnit extends Unit<ProxyProps> {
           required: ['id', 'host', 'port', 'protocol']
         }
       },
-      release: {
-        name: 'release',
-        description: 'Get proxy connection and mark as used',
+      exclusive: {
+        name: 'exclusive',
+        description: 'Get proxy connection and mark as used (exclusive access)',
         parameters: {
           type: 'object',
           properties: {
@@ -184,7 +185,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const poolSize = config.poolSize ?? 20; // No choice - 20 is optimal for most operations
     const rotationThreshold = config.rotationThreshold ?? 0.3; // No choice - 30% is optimal
 
-    const socker = SockerUnit.create(config.sources);
+    const socker = Socker.create(config.sources);
     const validator = Validate.create();
     const poolState = createState('proxy-pool', {
       proxies: [],
@@ -261,21 +262,12 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
-   * Get proxy connection and mark as used
-   * Base principle: get() + markUsed logic
+   * Get proxy connection and mark as used (exclusive access)
+   * Uses get() for clean code reuse
    */
-  async release(): Promise<ProxyConnection> {
-    const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
-    if (!isInitialized) {
-      throw new Error(`[${this.dna.id}] Proxy pool not initialized - call init() first`);
-    }
-
-    // Get from current pool immediately
-    const proxy = this.getFromPool();
-    if (!proxy) {
-      throw new Error(`[${this.dna.id}] Proxy pool exhausted - replenishment in progress`);
-    }
-
+  async exclusive(): Promise<ProxyConnection> {
+    const proxy = await this.get(); // Reuse get() logic
+    
     // Mark as used and trigger replenishment check
     this.markProxyAsUsed(proxy.id);
     
@@ -284,7 +276,19 @@ export class ProxyUnit extends Unit<ProxyProps> {
       this.replenishPool(); // Fire and forget - SMITH PRINCIPLE
     }
 
-    return this.formatProxyConnection(proxy);
+    return proxy;
+  }
+
+  /**
+   * Mark proxy as failed and remove from pool
+   * Use when proxy fails - cleaner than delete()
+   */
+  async failed(proxy: ProxyConnection): Promise<void> {
+    // Remove from local pool immediately
+    this.removeFromPool(proxy.id);
+    
+    // Note: No source removal - let pool logic handle cleanup
+    // This preserves pool integrity and avoids corruption
   }
 
   /**
@@ -507,7 +511,7 @@ Pool Management (Automatic):
 • 20 proxy pool size (convention over configuration)
 • 30% replenishment threshold (convention over configuration)
 • Fire-and-forget replenishment (non-blocking)
-• Automatic source failover via SockerUnit
+• Automatic source failover via Socker
 
 Configuration Example:
   const proxy = ProxyUnit.create({

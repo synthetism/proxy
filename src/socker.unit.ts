@@ -27,7 +27,7 @@ interface SockerProps extends UnitProps {
  * - Round-robin source selection
  * - Async removal across sources that support it
  */
-export class SockerUnit extends Unit<SockerProps> {
+export class Socker extends Unit<SockerProps> {
   protected constructor(props: SockerProps) {
     super(props);
   }
@@ -88,13 +88,13 @@ Sources: ${this.props.sources.length}
     };
   }
 
-  static create(sources: IProxySource[]): SockerUnit {
+  static create(sources: IProxySource[]): Socker {
     const props: SockerProps = {
       dna: createUnitSchema({ id: 'socker', version: '1.0.0' }),
       sources,
       currentIndex: 0
     };
-    return new SockerUnit(props);
+    return new Socker(props);
   }
 
   /**

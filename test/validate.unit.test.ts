@@ -1,5 +1,5 @@
 import { test, describe, expect } from 'vitest';
-import { ValidateUnit } from '../src/validate.unit';
+import { Validate as ValidateUnit } from '../src/validate.unit';
 import type { ProxyConnection } from '../src/types';
 
 describe('ValidateUnit v1.0.0 - Future-Ready Validation', () => {

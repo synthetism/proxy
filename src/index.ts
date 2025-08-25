@@ -8,10 +8,13 @@ export type {
   SourceHealth 
 } from './types.js';
 
-// Socker unit
-export { SockerUnit } from './socker.unit.js';
+// Main proxy unit
+export { ProxyUnit, type ProxyEvent } from './proxy.unit.js';
 
 // Socker unit
+export { Socker } from './socker.unit.js';
+
+// Validate unit
 export { Validate } from './validate.unit.js';
 
 

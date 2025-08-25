@@ -63,7 +63,8 @@ describe('ProxyUnit v1.0.7 - Clean Lifecycle Interface', () => {
   test('required capabilities are available', () => {
     const capabilities = proxyUnit.capabilities().list();
     expect(capabilities).toContain('get');
-    expect(capabilities).toContain('release');
+    expect(capabilities).toContain('exclusive');
+    expect(capabilities).toContain('failed');
     expect(capabilities).toContain('validate');
     expect(capabilities).toContain('delete');
     expect(capabilities).toContain('init');
@@ -80,9 +81,9 @@ describe('ProxyUnit v1.0.7 - Clean Lifecycle Interface', () => {
     expect(proxy1.port).toBe(8080);
   });
 
-  test('release() method gets proxy AND marks as used', async () => {
-    const proxy = await proxyUnit.release();
-    
+  test('exclusive() method gets proxy AND marks as used', async () => {
+    const proxy = await proxyUnit.exclusive();
+
     expect(proxy).toBeDefined();
     expect(proxy.host).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
     expect(proxy.port).toBe(8080);
@@ -103,7 +104,7 @@ describe('ProxyUnit v1.0.7 - Clean Lifecycle Interface', () => {
     // Test with fewer proxies to avoid exhaustion 
     const proxies: ProxyConnection[] = [];
     for (let i = 0; i < 3; i++) { // Only use available mocked proxies
-      const proxy = await proxyUnit.release();
+      const proxy = await proxyUnit.exclusive();
       proxies.push(proxy);
     }
     
@@ -130,7 +131,7 @@ describe('ProxyUnit v1.0.7 - Clean Lifecycle Interface', () => {
     // Verify key capabilities are exposed
     const capabilityList = contract.capabilities.list();
     expect(capabilityList).toContain('get');
-    expect(capabilityList).toContain('release');
+    expect(capabilityList).toContain('exclusive');
   });
 
   test('error handling provides helpful messages', async () => {
@@ -164,7 +165,7 @@ describe('ProxyUnit Integration Patterns', () => {
     expect(requestSuccessful).toBe(true);
     
     // Mark as used after successful request
-    const usedProxy = await proxyUnit.release(); // Marks as used
+    const usedProxy = await proxyUnit.exclusive(); // Marks as used
     expect(usedProxy.host).toBeDefined();
   });
 
