@@ -425,7 +425,9 @@ export class ProxyUnit extends Unit<ProxyProps> {
       return null;
     }
 
-    return availableProxies[0]; // First available 
+    // Random selection to avoid always getting the same proxy on retries
+    const randomIndex = Math.floor(Math.random() * availableProxies.length);
+    return availableProxies[randomIndex];
   }
 
   /**

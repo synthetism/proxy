@@ -9,7 +9,7 @@
  |_|   |_|  \___/_/\_\\__, |  \____/|_| |_|_|\__|
                        __/ |                     
                       |___/                      
-version: 1.0.0
+version: 1.0.1
 ```
 
 **Professional proxy pool management with automatic failover, health validation, and seamless network integration.**
