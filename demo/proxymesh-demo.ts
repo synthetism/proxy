@@ -102,20 +102,6 @@ async function main() {
       console.log(`   ✅ Reactivated successfully, got proxy: ${finalProxies[0].id}`);
       console.log();
 
-      // Show final stats
-      console.log('📊 Final Source Stats:');
-      const stats = proxyMeshSource.getStats();
-      console.log(`   Name: ${stats.name}`);
-      console.log(`   Total: ${stats.total}`);
-      console.log(`   Successful: ${stats.successful}`);
-      console.log(`   Failed: ${stats.failed}`);
-      if (stats.lastSuccess) {
-        console.log(`   Last Success: ${stats.lastSuccess.toISOString()}`);
-      }
-      if (stats.lastFailure) {
-        console.log(`   Last Failure: ${stats.lastFailure.toISOString()}`);
-      }
-      console.log();
 
       console.log('🎉 ProxyMesh demo completed successfully!');
       

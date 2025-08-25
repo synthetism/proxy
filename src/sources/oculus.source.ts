@@ -3,13 +3,9 @@ import type { IProxySource, ProxyItem } from '../types.js';
 export interface OculusConfig {
   apiToken: string; // Used as authToken header
   orderToken: string; 
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
   country?: string;
   protocol?: 'http' | 'https' | 'socks5';
-  planType?: 'DEDICATED_DC' | 'ISP' | 'ISP_PREMIUM' | 'SHARED_DC' | 'RESIDENTIAL_SCRAPER';
+  planType: 'DEDICATED_DC' | 'ISP' | 'ISP_PREMIUM' | 'SHARED_DC' | 'RESIDENTIAL_SCRAPER';
   whiteListIP: string[];
 }
 

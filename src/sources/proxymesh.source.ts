@@ -1,6 +1,6 @@
 import type { IProxySource, ProxyItem } from '../types.js';
 
-interface ProxyMeshConfig {
+export interface ProxyMeshConfig {
   login: string;
   password: string;
   host: string;

@@ -9,7 +9,7 @@ export type {
 } from './types.js';
 
 // Main proxy unit
-export { ProxyUnit, type ProxyEvent } from './proxy.unit.js';
+export { ProxyUnit, VERSION, type ProxyEvent } from './proxy.unit.js';
 
 // Socker unit
 export { Socker } from './socker.unit.js';
@@ -19,5 +19,5 @@ export { Validate } from './validate.unit.js';
 
 
 // Source implementations
-export { OculusSource } from './sources/oculus.source.js';
-export { ProxyMeshSource } from './sources/proxymesh.source.js';
+export { OculusSource, type OculusConfig } from './sources/oculus.source.js';
+export { ProxyMeshSource, type ProxyMeshConfig } from './sources/proxymesh.source.js';

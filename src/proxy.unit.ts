@@ -53,6 +53,9 @@ export interface ProxyEvent extends Event {
  * - Automatic pool management (no configuration needed)
  * - Fire-and-forget operations (non-blocking)
  */
+
+export const VERSION = '1.0.3';
+
 export class ProxyUnit extends Unit<ProxyProps> {
   protected constructor(props: ProxyProps) {
     super(props);
@@ -195,7 +198,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
     });
 
     const props: ProxyProps = {
-      dna: createUnitSchema({ id: 'proxy', version: '1.0.7' }),
+      dna: createUnitSchema({ id: 'proxy', version: VERSION }),
       socker,
       validator,
       poolState,
@@ -284,11 +287,10 @@ export class ProxyUnit extends Unit<ProxyProps> {
    * Use when proxy fails - cleaner than delete()
    */
   async failed(proxy: ProxyConnection): Promise<void> {
+
     // Remove from local pool immediately
     this.removeFromPool(proxy.id);
-    
-    // Note: No source removal - let pool logic handle cleanup
-    // This preserves pool integrity and avoids corruption
+    this.props.poolState.get<ProxyItem[]>('proxies') || [];
   }
 
   /**
@@ -386,8 +388,6 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const availableCount = proxies.filter((p: ProxyItem) => !p.used).length;
     const neededCount = this.props.poolSize - availableCount;
 
-    console.log('availableCount: ', availableCount);
-    console.log('Needed count: ', neededCount);
     this.props.socker.replenish(neededCount)
       .then(newProxies => {
         if (newProxies.length > 0) {
@@ -425,9 +425,8 @@ export class ProxyUnit extends Unit<ProxyProps> {
       return null;
     }
 
-    // Random selection to avoid always getting the same proxy on retries
-    const randomIndex = Math.floor(Math.random() * availableProxies.length);
-    return availableProxies[randomIndex];
+    // Always return first available proxy (deterministic behavior)
+    return availableProxies[0];
   }
 
   /**

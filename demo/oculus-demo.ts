@@ -34,10 +34,7 @@ async function main() {
     const oculusSource = new OculusSource({
       apiToken: config.apiToken,
       orderToken: config.orderToken, // Add orderToken from config
-      host: config.host,
-      port: config.port,
-      username: config.username,
-      password: config.password,
+      country: 'sg',
       planType: 'SHARED_DC',
       whiteListIP: config.whiteListIP
     });
@@ -48,7 +45,7 @@ async function main() {
     const startTime = Date.now();
     
     try {
-      const proxies = await oculusSource.get(2);
+      const proxies = await oculusSource.get(3);
       const duration = Date.now() - startTime;
       
       console.log(`✅ Success! Got ${proxies.length} proxies in ${duration}ms\n`);
@@ -59,6 +56,8 @@ async function main() {
         console.log(`   ${index + 1}. ID: ${proxy.id}`);
         console.log(`      Source: ${proxy.source}`);
         console.log(`      TTL: ${proxy.ttl}s`);
+        console.log(`      Host: ${proxy.host}`);
+        console.log(`      Username: ${proxy.username}`);
         console.log(`      Created: ${proxy.createdAt.toISOString()}`);
         console.log(`      Used: ${proxy.used}`);
         console.log();
@@ -84,13 +83,7 @@ async function main() {
       console.log(`   ${apiError instanceof Error ? apiError.message : apiError}`);
       console.log();
       
-      // Show stats even on failure
-      const stats = oculusSource.getStats();
-      console.log('📊 Source Stats (after failure):');
-      console.log(`   Failed: ${stats.failed}`);
-      if (stats.lastFailure) {
-        console.log(`   Last Failure: ${stats.lastFailure.toISOString()}`);
-      }
+   
     }
 
   } catch (error) {
