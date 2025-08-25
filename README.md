@@ -36,11 +36,7 @@ graph TD
     A --> J[Network Integration]
     J --> K[HTTP Requests]
     K --> L[Automatic Proxy Usage]
-    
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style C fill:#e8f5e8
-    style J fill:#fff3e0
+
 ```
 
 ### Component Responsibilities
