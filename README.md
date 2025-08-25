@@ -28,7 +28,7 @@ graph TD
     
     B --> E[OculusSource]
     B --> F[ProxyMeshSource]
-    B --> G[Custom Sources]
+    B --> G[custom IProxySource]
     
     C --> H[Health Checks]
     C --> I[Connectivity Tests]
