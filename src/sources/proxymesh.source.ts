@@ -37,6 +37,8 @@ export class ProxyMeshSource implements IProxySource {
       source: 'proxymesh',
       host: this.config.host,
       port: this.config.port,
+      username: this.config.login,
+      password: this.config.password,
       protocol: this.config.protocol || 'http',
       used: false,
       createdAt: new Date()

@@ -1,4 +1,8 @@
 {
     "login" :"login",
-    "password": "password"
+    "password": "password",
+    "host" : "proxymesh-host",
+    "port": 31280,
+    "protocol": "http",
+    "country": "sg"
 }

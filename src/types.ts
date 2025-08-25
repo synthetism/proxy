@@ -12,6 +12,8 @@ export interface ProxyItem {
   protocol: 'http' | 'https' | 'socks5';
   type?: 'datacenter' | 'residential';
   country?: string;
+  userId?: string;
+
 }
 
 export interface ProxyConnection {
@@ -68,5 +70,6 @@ export interface PoolStatus extends ProxyStats {
     source: string;
     used: boolean;
     age: number;
+
   }>;
 }

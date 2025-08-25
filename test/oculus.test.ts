@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { OculusSource } from '../src/sources/oculus.source.js';
+import { OculusSource, type OculusConfig } from '../src/sources/oculus.source.js';
+import type {ProxyItem} from '../src/types.js';
+
 
 // Mock fetch globally
 const mockFetch = vi.fn() as MockedFunction<typeof fetch>;
@@ -16,7 +18,7 @@ const createMockResponse = (data: unknown, status = 200, headers?: Record<string
 } as unknown as Response);
 
 describe('OculusSource', () => {
-  const mockConfig = {
+  const mockConfig: OculusConfig = {
     apiToken: 'test-api-token',
     orderToken: 'test-order-token',
     host: 'proxy.oculus-proxy.com',
@@ -124,16 +126,26 @@ describe('OculusSource', () => {
 
     it('should validate proxy correctly', async () => {
       const oculusSource = new OculusSource(mockConfig);
-      const validProxy = {
+      const validProxy: ProxyItem = {
         id: 'oculus-123',
         ttl: 300,
+        protocol: 'http',
+        host: 'oculus-host',
+        port: 8080,
+        username: 'oculus-user',
+        password: 'oculus-pass',
         source: 'oculus',
         used: false,
         createdAt: new Date()
       };
 
-      const invalidProxy = {
+      const invalidProxy: ProxyItem = {
         id: 'other-123',
+        host: 'other-host',
+        port: 8080,
+        protocol: 'http',
+        username: 'other-user',
+        password: 'other-pass',
         ttl: 300,
         source: 'other',
         used: false,

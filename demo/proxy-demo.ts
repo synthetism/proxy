@@ -120,6 +120,10 @@ async function main() {
     const initDuration = Date.now() - initStart;
     
     console.log(`✅ Pool initialized in ${initDuration}ms`);
+
+    console.log("Proxy Details:")
+    console.log(await proxy.get());
+
     
     // Show initial stats
     const initialStats = proxy.getStats();

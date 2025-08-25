@@ -11,6 +11,7 @@ import {
 } from '@synet/unit';
 import { createState, type State } from '@synet/state';
 import { SockerUnit } from './socker.unit.js';
+import { Validate } from './validate.unit.js';
 import type { 
   IProxySource, 
   ProxyItem, 
@@ -28,6 +29,7 @@ interface ProxyConfig {
 
 interface ProxyProps extends UnitProps {
   socker: SockerUnit;
+  validator: Validate;
   poolState: State; // State unit from @synet/state
   poolSize: number;
   rotationThreshold: number;
@@ -60,6 +62,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const capabilities = Capabilities.create(this.dna.id, {
       init: (...args: unknown[]) => this.init(),
       get: (...args: unknown[]) => this.get(),
+      release: (...args: unknown[]) => this.release(),
       validate: (...args: unknown[]) => this.validate(args[0] as ProxyConnection),
       delete: (...args: unknown[]) => this.delete(args[0] as ProxyConnection),
     });
@@ -73,7 +76,39 @@ export class ProxyUnit extends Unit<ProxyProps> {
       },
       get: {
         name: 'get',
-        description: 'Get proxy connection for network requests',
+        description: 'Get proxy connection (clean - no marking as used)',
+        parameters: {
+          type: 'object',
+          properties: {
+            criteria: {
+              type: 'object',
+              description: 'Criteria for selecting a proxy',
+              properties: {
+                country: { type: 'string', description: 'Proxy country code' },
+                protocol: { type: 'string', description: 'Proxy protocol', enum: ['http', 'socks5'] },
+                type: { type: 'string', description: 'Proxy type', enum: ['datacenter', 'residential'] }
+              }
+            }
+          }
+        },
+        response: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            host: { type: 'string' },
+            port: { type: 'number' },
+            username: { type: 'string' },
+            password: { type: 'string' },
+            protocol: { type: 'string' },
+            type: { type: 'string' },
+            country: { type: 'string' }
+          },
+          required: ['id', 'host', 'port', 'protocol']
+        }
+      },
+      release: {
+        name: 'release',
+        description: 'Get proxy connection and mark as used',
         parameters: {
           type: 'object',
           properties: {
@@ -150,6 +185,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
     const rotationThreshold = config.rotationThreshold ?? 0.3; // No choice - 30% is optimal
 
     const socker = SockerUnit.create(config.sources);
+    const validator = Validate.create();
     const poolState = createState('proxy-pool', {
       proxies: [],
       size: 0,
@@ -158,8 +194,9 @@ export class ProxyUnit extends Unit<ProxyProps> {
     });
 
     const props: ProxyProps = {
-      dna: createUnitSchema({ id: 'proxy', version: '1.0.0' }),
+      dna: createUnitSchema({ id: 'proxy', version: '1.0.7' }),
       socker,
+      validator,
       poolState,
       poolSize,
       rotationThreshold
@@ -205,10 +242,29 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
-   * Get proxy connection for network requests
-   * Base principle: One method, automatic management, no decisions needed
+   * Get proxy connection (clean - no marking as used)
+   * Base principle: Simple get, no side effects
    */
   async get(): Promise<ProxyConnection> {
+    const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
+    if (!isInitialized) {
+      throw new Error(`[${this.dna.id}] Proxy pool not initialized - call init() first`);
+    }
+
+    // Get from current pool immediately
+    const proxy = this.getFromPool();
+    if (!proxy) {
+      throw new Error(`[${this.dna.id}] Proxy pool exhausted - replenishment in progress`);
+    }
+
+    return this.formatProxyConnection(proxy);
+  }
+
+  /**
+   * Get proxy connection and mark as used
+   * Base principle: get() + markUsed logic
+   */
+  async release(): Promise<ProxyConnection> {
     const isInitialized = this.props.poolState.get<boolean>('initialized') || false;
     if (!isInitialized) {
       throw new Error(`[${this.dna.id}] Proxy pool not initialized - call init() first`);
@@ -232,11 +288,10 @@ export class ProxyUnit extends Unit<ProxyProps> {
   }
 
   /**
-   * Validate proxy connection
+   * Validate proxy connection using ValidateUnit
    */
   async validate(proxy: ProxyConnection): Promise<boolean> {
-    // Basic validation - could be enhanced with connectivity test
-    return !!(proxy.id && proxy.host && proxy.port && proxy.protocol);
+    return await this.props.validator.validate(proxy);
   }
 
   /**
@@ -292,16 +347,13 @@ export class ProxyUnit extends Unit<ProxyProps> {
         id: p.id,
         source: p.source,
         used: p.used || false,
-        age: Date.now() - p.createdAt.getTime()
+        age: Date.now() - p.createdAt.getTime(),
       }))
     };
   }
 
-  // SMITH PRINCIPLE: Private methods with no configuration options
-  
   /**
    * Check if pool needs replenishment
-   * SMITH RULE: 30% threshold, no choice
    */
   private shouldReplenish(): boolean {
     const proxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
@@ -359,7 +411,7 @@ export class ProxyUnit extends Unit<ProxyProps> {
 
   /**
    * Get proxy from pool - simplified, no criteria
-   * SMITH PRINCIPLE: Simple matching, just get next available
+   * Simple matching, just get next available
    */
   private getFromPool(): ProxyItem | null {
     const proxies = this.props.poolState.get<ProxyItem[]>('proxies') || [];
@@ -443,8 +495,13 @@ ProxyUnit v${this.dna.version} - Pool Management + Source Orchestration
 REQUIRED INITIALIZATION:
   await proxy.init(); // Must call before use
 
-ONE METHOD TO RULE THEM ALL:
-  const connection = await proxy.get(criteria?);
+TWO METHODS FOR PROXY ACCESS:
+  const connection = await proxy.get();     // Clean get - no marking as used
+  const connection = await proxy.release(); // Get + mark as used
+
+OTHER METHODS:
+  const isValid = await proxy.validate(connection); // Validate using ValidateUnit
+  await proxy.delete(connection); // Remove from pool
 
 Pool Management (Automatic):
 • 20 proxy pool size (convention over configuration)
@@ -462,7 +519,8 @@ Configuration Example:
   
   await proxy.init(); // REQUIRED
   
-  const connection = await proxy.get(); // No criteria needed
+  const connection = await proxy.get();     // No side effects
+  const connection = await proxy.release(); // Marks as used
   // Use with Network unit...
 
 Stats & Monitoring:
@@ -471,6 +529,7 @@ Stats & Monitoring:
 • Events: pool.initialized, pool.replenished, pool.replenish.failed
 
 Sources: ${this.props.socker.whoami()}
+Validation: ${this.props.validator.whoami()}
     `);
   }
 }

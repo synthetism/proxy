@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ProxyMeshSource } from '../src/sources/proxymesh.source.js';
-import { ProxyItem } from '../src/types.js';
+import type { ProxyItem } from '../src/types.js';
 
 describe('ProxyMeshSource', () => {
   const mockConfig = {

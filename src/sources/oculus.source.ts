@@ -1,6 +1,6 @@
 import type { IProxySource, ProxyItem } from '../types.js';
 
-interface OculusConfig {
+export interface OculusConfig {
   apiToken: string; // Used as authToken header
   orderToken: string; 
   host?: string;
@@ -83,12 +83,11 @@ export class OculusSource implements IProxySource {
       whiteListIP: this.config.whiteListIP // At least one IP is required according to API response
     };
 
-    /* console.log('🌐 Oculus API Request:', JSON.stringify(requestBody, null, 2));
-    console.log('🔑 Auth Token:', `${this.config.apiToken.substring(0, 8)}...`);
-    console.log('🎫 Order Token:', this.config.orderToken || 'NOT SET');
-    console.log('📋 Full Config Keys:', Object.keys(this.config)); */
+    /* console.log('Oculus API Request:', JSON.stringify(requestBody, null, 2));
+    console.log('Auth Token:', `${this.config.apiToken.substring(0, 8)}...`);
+    console.log('Order Token:', this.config.orderToken || 'NOT SET');
+    console.log('Full Config Keys:', Object.keys(this.config)); */
  
-
   
     try {
       const response = await fetch(apiUrl, {
@@ -99,7 +98,9 @@ export class OculusSource implements IProxySource {
         },
         body: JSON.stringify(requestBody)
       });
-      
+
+  
+
       if (!response.ok) {
         const errorText = await response.text();
         console.log('❌ Error response body:', errorText);
@@ -114,7 +115,7 @@ export class OculusSource implements IProxySource {
         throw new Error(`Oculus API Error: ${oculusError.detail}(${oculusError.code})`);
       }
 
-      console.log(`Oculus API Response: ${response.status} ${response.statusText}`);
+      //console.log(`Oculus API Response: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -125,6 +126,7 @@ export class OculusSource implements IProxySource {
       const data: unknown = await response.json();
       // console.log('✅ API Response data:', JSON.stringify(data, null, 2));
       
+      //console.log('✅ Oculus API Response:', data);
       // Handle different response formats from Oculus API
       if (Array.isArray(data)) {
         return { proxies: data as string[] };
